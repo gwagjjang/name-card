@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>캐릭터 상태창 — 곽태규</title>
+<style>
+  :root {
+    --primary: #14A38B;
+    --primary-bright: #1CE5C3;
+    --primary-dim: rgba(20, 163, 139, 0.22);
+    --bg-dark: #070B0E;
+    --panel-bg: #0D1419;
+    --panel-inner: #111B22;
+    --text-main: #E6F4F1;
+    --text-sub: #8FA8A3;
+    --gold: #FFD166;
+    --hp-color: #FF5964;
+    --mp-color: #38BDF8;
+    --exp-color: #14A38B;
+    --pixel-font: 'NeoDunggeunmo', 'Galmuri11', 'DungGeunMo', 'Malgun Gothic', monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    width: 100%;
+    min-height: 100vh;
+    background-color: var(--bg-dark);
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(20, 163, 139, 0.14) 0%, transparent 60%),
+      linear-gradient(rgba(20, 163, 139, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(20, 163, 139, 0.04) 1px, transparent 1px);
+    background-size: 100% 100%, 20px 20px, 20px 20px;
+    color: var(--text-main);
+    font-family: var(--pixel-font);
+    overflow-x: hidden;
+    line-height: 1.55;
+    -webkit-font-smoothing: none;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 18px 14px 32px;
+  }
+
+  /* 상태창 메인 프레임 */
+  .status-window {
+    position: relative;
+    background: var(--panel-bg);
+    border: 2px solid var(--primary);
+    box-shadow:
+      0 0 18px rgba(20, 163, 139, 0.35),
+      inset 0 0 24px rgba(20, 163, 139, 0.12);
+    padding: 16px 14px 20px;
+  }
+
+  /* 픽셀 코너 장식 */
+  .corner {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: var(--primary-bright);
+    box-shadow: 0 0 8px var(--primary-bright);
+  }
+  .corner.tl { top: -3px; left: -3px; }
+  .corner.tr { top: -3px; right: -3px; }
+  .corner.bl { bottom: -3px; left: -3px; }
+  .corner.br { bottom: -3px; right: -3px; }
+
+  /* 상단 타이틀 바 */
+  .window-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px dashed rgba(20, 163, 139, 0.45);
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+    gap: 8px;
+  }
+
+  .window-title {
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    color: var(--primary-bright);
+    text-shadow: 0 0 8px rgba(28, 229, 195, 0.6);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--primary-bright);
+    box-shadow: 0 0 6px var(--primary-bright);
+  }
+
+  .replay-btn {
+    background: transparent;
+    border: 1px solid var(--primary);
+    color: var(--primary-bright);
+    font-family: inherit;
+    font-size: 0.72rem;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+  }
+  .replay-btn:hover, .replay-btn:focus-visible {
+    background: var(--primary-dim);
+    box-shadow: 0 0 10px rgba(20, 163, 139, 0.5);
+    outline: none;
+  }
+
+  /* 캐릭터 상단 프로필 영역 */
+  .hero-section {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--panel-inner);
+    border: 1px solid rgba(20, 163, 139, 0.45);
+    padding: 12px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+
+  .avatar-box {
+    flex-shrink: 0;
+    width: 76px;
+    height: 76px;
+    border: 2px solid var(--primary-bright);
+    box-shadow: 0 0 12px rgba(20, 163, 139, 0.55);
+    background: #081214;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .avatar-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+    display: block;
+  }
+
+  .avatar-fallback {
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #14A38B 0%, #0B5D50 55%, #1CE5C3 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #051412;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.45);
+  }
+
+  .hero-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .level-job-badge {
+    display: inline-block;
+    font-size: 0.78rem;
+    color: var(--primary-bright);
+    background: rgba(20, 163, 139, 0.16);
+    border: 1px solid var(--primary);
+    padding: 2px 8px;
+    margin-bottom: 6px;
+    word-break: keep-all;
+  }
+
+  .char-name-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 4px;
+    min-height: 1.8rem;
+  }
+
+  .char-name {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 10px rgba(20, 163, 139, 0.65);
+  }
+
+  .levelup-badge {
+    display: inline-block;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #1A1200;
+    background: var(--gold);
+    border: 1px solid #FFF3B0;
+    padding: 2px 7px;
+    box-shadow: 0 0 12px rgba(255, 209, 102, 0.9);
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+  }
+
+  .levelup-badge.active {
+    animation: levelUpSparkle 1.4s ease-out forwards;
+  }
+
+  @keyframes levelUpSparkle {
+    0% {
+      opacity: 0;
+      transform: scale(0.75) translateY(3px);
+      filter: brightness(1);
+    }
+    25% {
+      opacity: 1;
+      transform: scale(1.12) translateY(-2px);
+      filter: brightness(1.45);
+      box-shadow: 0 0 20px #FFD166, 0 0 32px #FFFFFF;
+    }
+    50% {
+      opacity: 1;
+      transform: scale(0.98) translateY(0);
+      filter: brightness(1.1);
+    }
+    75% {
+      opacity: 1;
+      transform: scale(1.05);
+      filter: brightness(1.35);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+      filter: brightness(1);
+      box-shadow: 0 0 12px rgba(255, 209, 102, 0.85);
+    }
+  }
+
+  .tagline {
+    font-size: 0.88rem;
+    color: var(--text-sub);
+    min-height: 1.35rem;
+    word-break: keep-all;
+  }
+
+  .typing-cursor::after {
+    content: "▌";
+    color: var(--primary-bright);
+    margin-left: 2px;
+    animation: blinkCursor 0.75s steps(2, start) infinite;
+  }
+
+  @keyframes blinkCursor {
+    to { visibility: hidden; }
+  }
+
+  /* 섹션 공통 */
+  .section-block {
+    margin-bottom: 16px;
+  }
+
+  .section-label {
+    font-size: 0.82rem;
+    color: var(--primary-bright);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.04em;
+  }
+
+  .section-label::before {
+    content: "▶";
+    font-size: 0.68rem;
+    color: var(--primary);
+  }
+
+  /* 능력치 바 (HP / MP / EXP) */
+  .stats-box {
+    background: var(--panel-inner);
+    border: 1px solid rgba(20, 163, 139, 0.4);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+
+  .stat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+  }
+
+  .stat-code {
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  .stat-code.hp { color: var(--hp-color); }
+  .stat-code.mp { color: var(--mp-color); }
+  .stat-code.exp { color: var(--primary-bright); }
+
+  .stat-name {
+    color: var(--text-main);
+  }
+
+  .stat-status {
+    font-size: 0.72rem;
+    color: var(--text-sub);
+  }
+
+  .bar-track {
+    width: 100%;
+    height: 14px;
+    background: #060A0D;
+    border: 1px solid rgba(20, 163, 139, 0.55);
+    padding: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+  }
+
+  .bar-fill.hp {
+    background: linear-gradient(90deg, #B82935, #FF5964);
+    box-shadow: 0 0 8px rgba(255, 89, 100, 0.65);
+  }
+  .bar-fill.mp {
+    background: linear-gradient(90deg, #1672A8, #38BDF8);
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.65);
+  }
+  .bar-fill.exp {
+    background: linear-gradient(90deg, #0D6E5E, #14A38B, #1CE5C3);
+    box-shadow: 0 0 10px rgba(28, 229, 195, 0.75);
+  }
+
+  /* 픽셀 눈금 오버레이 */
+  .bar-track::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 11px,
+      rgba(7, 11, 14, 0.55) 11px,
+      rgba(7, 11, 14, 0.55) 13px
+    );
+    pointer-events: none;
+  }
+
+  /* 스킬 트리 (쓰는 도구) */
+  .skill-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .skill-node {
+    background: var(--panel-inner);
+    border: 1px solid rgba(20, 163, 139, 0.45);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.84rem;
+    padding: 10px 10px;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s, transform 0.1s;
+    min-width: 0;
+  }
+
+  .skill-node:hover,
+  .skill-node:focus-visible,
+  .skill-node.equipped {
+    border-color: var(--primary-bright);
+    background: rgba(20, 163, 139, 0.18);
+    box-shadow: 0 0 10px rgba(20, 163, 139, 0.45);
+    outline: none;
+  }
+
+  .skill-node:active {
+    transform: translateY(1px);
+  }
+
+  .skill-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .skill-tag {
+    font-size: 0.68rem;
+    color: var(--primary-bright);
+    border: 1px solid rgba(20, 163, 139, 0.5);
+    padding: 1px 5px;
+    flex-shrink: 0;
+  }
+
+  .skill-feedback {
+    margin-top: 7px;
+    font-size: 0.76rem;
+    color: var(--primary-bright);
+    min-height: 1.2rem;
+  }
+
+  /* 퀘스트 로그 (해 본 일 3개) */
+  .quest-list {
+    list-style: none;
+    background: var(--panel-inner);
+    border: 1px solid rgba(20, 163, 139, 0.4);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .quest-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.84rem;
+    color: var(--text-main);
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(20, 163, 139, 0.25);
+    word-break: keep-all;
+  }
+
+  .quest-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .quest-check {
+    color: var(--primary-bright);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* 길드 가입 신청 버튼 (포트폴리오 링크) */
+  .cta-area {
+    margin-top: 18px;
+  }
+
+  .guild-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--primary);
+    color: #041310;
+    font-family: inherit;
+    font-size: 0.96rem;
+    font-weight: 700;
+    text-decoration: none;
+    border: 2px solid var(--primary-bright);
+    box-shadow: 0 0 16px rgba(20, 163, 139, 0.65);
+    letter-spacing: 0.04em;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  .guild-btn:hover,
+  .guild-btn:focus-visible {
+    background: var(--primary-bright);
+    box-shadow: 0 0 24px rgba(28, 229, 195, 0.9);
+    outline: none;
+  }
+
+  .guild-btn:active {
+    transform: translateY(1px);
+  }
+
+  /* 푸터 고지 */
+  .footer-note {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--text-sub);
+    opacity: 0.82;
+    word-break: keep-all;
+  }
+
+  /* 움직임 줄이기 설정 대응 */
+  @media (prefers-reduced-motion: reduce) {
+    .bar-fill {
+      transition: none !important;
+    }
+    .levelup-badge.active {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+    .typing-cursor::after {
+      animation: none !important;
+    }
+    .skill-node,
+    .guild-btn,
+    .replay-btn {
+      transition: none !important;
+    }
+  }
+
+  /* PC 화면 확장 여유 조정 */
+  @media (min-width: 600px) {
+    .wrap {
+      padding-top: 36px;
+      padding-bottom: 44px;
+    }
+    .status-window {
+      padding: 22px 22px 24px;
+    }
+    .avatar-box {
+      width: 86px;
+      height: 86px;
+    }
+    .char-name {
+      font-size: 1.5rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="status-window" aria-label="캐릭터 상태창">
+      <span class="corner tl" aria-hidden="true"></span>
+      <span class="corner tr" aria-hidden="true"></span>
+      <span class="corner bl" aria-hidden="true"></span>
+      <span class="corner br" aria-hidden="true"></span>
+
+      <header class="window-header">
+        <div class="window-title">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>STATUS WINDOW</span>
+        </div>
+        <button type="button" class="replay-btn" id="replayBtn" aria-label="상태창 애니메이션 다시 재생">
+          ↻ 다시 보기
+        </button>
+      </header>
+
+      <!-- 상단 아바타 & 기본 정보 -->
+      <div class="hero-section">
+        <div class="avatar-box" id="avatarContainer"></div>
+        <div class="hero-info">
+          <div class="level-job-badge" id="levelJobBadge"></div>
+          <div class="char-name-row">
+            <h1 class="char-name" id="charName"></h1>
+            <span class="levelup-badge" id="levelUpBadge" aria-live="polite">LEVEL UP!</span>
+          </div>
+          <p class="tagline" id="charTagline"></p>
+        </div>
+      </div>
+
+      <!-- 강점 3개 (HP / MP / EXP 막대) -->
+      <div class="section-block">
+        <h2 class="section-label">능력치 (강점)</h2>
+        <div class="stats-box" id="statsContainer"></div>
+      </div>
+
+      <!-- 스킬 트리 (쓰는 도구) -->
+      <div class="section-block">
+        <h2 class="section-label">스킬 트리 (쓰는 도구)</h2>
+        <div class="skill-grid" id="skillsContainer"></div>
+        <p class="skill-feedback" id="skillFeedback" aria-live="polite"></p>
+      </div>
+
+      <!-- 퀘스트 로그 (해 본 일 3개) -->
+      <div class="section-block">
+        <h2 class="section-label">퀘스트 로그</h2>
+        <ul class="quest-list" id="questsContainer"></ul>
+      </div>
+
+      <!-- 길드 가입 신청 버튼 -->
+      <div class="cta-area">
+        <a
+          class="guild-btn"
+          id="portfolioBtn"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          [길드 가입 신청] 포트폴리오 보기 ↗
+        </a>
+      </div>
+    </section>
+
+    <footer class="footer-note" id="footerNote"></footer>
+  </main>
+
+  <script>
+    const PROFILE = {
+      level: 24,
+      name: "곽태규",
+      job: "기획",
+      tagline: "상상력이 좋음",
+      avatarSrc: "avatar.png",
+      strengths: [
+        { code: "HP", label: "경험", fill: 100 },
+        { code: "MP", label: "상상력", fill: 100 },
+        { code: "EXP", label: "끈기", fill: 100 }
+      ],
+      tools: ["c", "c++", "포토샵", "일러스트레이션"],
+      quests: [
+        "경험 기반 기획 탐구",
+        "상상력을 살린 아이디어 구상",
+        "끈기 있는 작업 완수"
+      ],
+      portfolioUrl: "https://sites.google.com/view/kwaktg/%ED%99%88",
+      ctaText: "[길드 가입 신청] 포트폴리오 열기 ↗",
+      aiNotice: "이 페이지의 그림과 코드는 AI의 도움을 받아 만들었습니다"
+    };
+
+    (function initStatusWindow() {
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let timers = [];
+
+      function clearAllTimers() {
+        timers.forEach((id) => clearTimeout(id));
+        timers = [];
+      }
+
+      // 1. 아바타 렌더링 (avatar.png 우선, 실패 시 이름 첫 글자 그라데이션 원)
+      function renderAvatar() {
+        const container = document.getElementById("avatarContainer");
+        container.innerHTML = "";
+
+        const firstChar = (PROFILE.name || "?").trim().charAt(0);
+        const fallbackEl = document.createElement("div");
+        fallbackEl.className = "avatar-fallback";
+        fallbackEl.textContent = firstChar;
+        fallbackEl.setAttribute("aria-label", PROFILE.name + " 아바타");
+
+        if (!PROFILE.avatarSrc) {
+          container.appendChild(fallbackEl);
+          return;
+        }
+
+        const img = document.createElement("img");
+        img.src = PROFILE.avatarSrc;
+        img.alt = PROFILE.name + " 아바타";
+        img.onerror = function () {
+          container.innerHTML = "";
+          container.appendChild(fallbackEl);
+        };
+        container.appendChild(img);
+      }
+
+      // 2. 상단 기본 정보
+      function renderHeaderInfo() {
+        const badge = document.getElementById("levelJobBadge");
+        badge.textContent = `LV.${PROFILE.level} · 직업: ${PROFILE.job}`;
+
+        const portfolioBtn = document.getElementById("portfolioBtn");
+        portfolioBtn.href = PROFILE.portfolioUrl;
+        portfolioBtn.textContent = PROFILE.ctaText;
+
+        const footerNote = document.getElementById("footerNote");
+        footerNote.textContent = PROFILE.aiNotice;
+      }
+
+      // 3. 능력치 막대 렌더링
+      function renderStats() {
+        const container = document.getElementById("statsContainer");
+        container.innerHTML = "";
+
+        PROFILE.strengths.forEach((stat, idx) => {
+          const codeLower = stat.code.toLowerCase();
+          const row = document.createElement("div");
+          row.className = "stat-row";
+          row.innerHTML = `
+            <div class="stat-top">
+              <div>
+                <span class="stat-code ${codeLower}">${stat.code}</span>
+                <span class="stat-name">${stat.label}</span>
+              </div>
+              <span class="stat-status" id="statStatus-${idx}">대기 중...</span>
+            </div>
+            <div class="bar-track" role="progressbar" aria-label="${stat.code} ${stat.label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="statTrack-${idx}">
+              <div class="bar-fill ${codeLower}" id="statFill-${idx}"></div>
+            </div>
+          `;
+          container.appendChild(row);
+        });
+      }
+
+      // 4. 스킬 트리 렌더링
+      function renderSkills() {
+        const container = document.getElementById("skillsContainer");
+        const feedback = document.getElementById("skillFeedback");
+        container.innerHTML = "";
+        feedback.textContent = "";
+
+        PROFILE.tools.forEach((tool) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "skill-node";
+          btn.innerHTML = `
+            <span class="skill-label">${tool}</span>
+            <span class="skill-tag">TOOL</span>
+          `;
+          btn.addEventListener("click", () => {
+            const isEquipped = btn.classList.toggle("equipped");
+            btn.querySelector(".skill-tag").textContent = isEquipped ? "ON" : "TOOL";
+            feedback.textContent = isEquipped
+              ? `▶ [${tool}] 도구 스킬 활성화`
+              : `▶ [${tool}] 도구 스킬 해제`;
+          });
+          container.appendChild(btn);
+        });
+      }
+
+      // 5. 퀘스트 로그 렌더링
+      function renderQuests() {
+        const container = document.getElementById("questsContainer");
+        container.innerHTML = "";
+
+        PROFILE.quests.slice(0, 3).forEach((quest) => {
+          const li = document.createElement("li");
+          li.className = "quest-item";
+          li.innerHTML = `
+            <span class="quest-check">[CLEAR]</span>
+            <span>${quest}</span>
+          `;
+          container.appendChild(li);
+        });
+      }
+
+      // 6. 타이핑 연출
+      function typeText(el, text, speed, onComplete) {
+        if (prefersReducedMotion) {
+          el.textContent = text;
+          el.classList.remove("typing-cursor");
+          if (onComplete) onComplete();
+          return;
+        }
+
+        el.textContent = "";
+        el.classList.add("typing-cursor");
+        let i = 0;
+
+        function step() {
+          if (i < text.length) {
+            el.textContent += text.charAt(i);
+            i += 1;
+            const id = setTimeout(step, speed);
+            timers.push(id);
+          } else {
+            el.classList.remove("typing-cursor");
+            if (onComplete) onComplete();
+          }
+        }
+        step();
+      }
+
+      // 7. 막대 순차 충전 및 LEVEL UP! 반짝임
+      function playSequence() {
+        clearAllTimers();
+
+        const nameEl = document.getElementById("charName");
+        const taglineEl = document.getElementById("charTagline");
+        const levelUpBadge = document.getElementById("levelUpBadge");
+
+        levelUpBadge.classList.remove("active");
+        nameEl.textContent = "";
+        taglineEl.textContent = "";
+
+        // 막대 초기화
+        PROFILE.strengths.forEach((_, idx) => {
+          const fillEl = document.getElementById(`statFill-${idx}`);
+          const statusEl = document.getElementById(`statStatus-${idx}`);
+          const trackEl = document.getElementById(`statTrack-${idx}`);
+          if (fillEl) fillEl.style.width = "0%";
+          if (statusEl) statusEl.textContent = "충전 대기";
+          if (trackEl) trackEl.setAttribute("aria-valuenow", "0");
+        });
+
+        // 이름 -> 한 줄 소개 순차 타이핑
+        typeText(nameEl, PROFILE.name, 95, () => {
+          typeText(taglineEl, PROFILE.tagline, 70);
+        });
+
+        // 능력치 막대 순차 충전
+        if (prefersReducedMotion) {
+          PROFILE.strengths.forEach((stat, idx) => {
+            const fillEl = document.getElementById(`statFill-${idx}`);
+            const statusEl = document.getElementById(`statStatus-${idx}`);
+            const trackEl = document.getElementById(`statTrack-${idx}`);
+            fillEl.style.width = stat.fill + "%";
+            statusEl.textContent = "MAX";
+            trackEl.setAttribute("aria-valuenow", String(stat.fill));
+          });
+          levelUpBadge.classList.add("active");
+          return;
+        }
+
+        PROFILE.strengths.forEach((stat, idx) => {
+          const delay = 260 + idx * 460;
+          const id = setTimeout(() => {
+            const fillEl = document.getElementById(`statFill-${idx}`);
+            const statusEl = document.getElementById(`statStatus-${idx}`);
+            const trackEl = document.getElementById(`statTrack-${idx}`);
+            fillEl.style.width = stat.fill + "%";
+            statusEl.textContent = "MAX";
+            trackEl.setAttribute("aria-valuenow", String(stat.fill));
+
+            // 마지막 막대가 차오른 직후 LEVEL UP! 반짝임
+            if (idx === PROFILE.strengths.length - 1) {
+              const lvlId = setTimeout(() => {
+                levelUpBadge.classList.remove("active");
+                void levelUpBadge.offsetWidth;
+                levelUpBadge.classList.add("active");
+              }, 650);
+              timers.push(lvlId);
+            }
+          }, delay);
+          timers.push(id);
+        });
+      }
+
+      renderAvatar();
+      renderHeaderInfo();
+      renderStats();
+      renderSkills();
+      renderQuests();
+      playSequence();
+
+      document.getElementById("replayBtn").addEventListener("click", playSequence);
+    })();
+  </script>
+</body>
+</html>
